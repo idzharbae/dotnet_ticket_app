@@ -1,0 +1,1 @@
+There is a known bug where the web will not load when you first open it, please refresh a couple times if that happens.

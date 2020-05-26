@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+option csharp_namespace = "TicketApp.Internal.Delivery.Grpc";
+
+package TicketProto;
+
+service TicketGrpc {
+  rpc GetTicket(Ticket) returns (Ticket);
+  rpc ListTicket(ListTicketReq) returns (ListTicketResp);
+
+  rpc CreateTicket(Ticket) returns (Ticket);
+  rpc UpdateTicket(Ticket) returns (Ticket);
+  rpc UpdateTicketAsignee(Ticket) returns (Ticket);
+  rpc UpdateTicketStatus(Ticket) returns (Ticket);
+  rpc DeleteTicket(Ticket) returns (Success);
+
+  rpc GetCategory(Category) returns (Category);
+  rpc ListCategory(ListCategoryReq) returns (ListCategoryResp);
+
+  rpc CreateCategory(Category) returns (Category);
+  rpc UpdateCategory(Category) returns (Category);
+  rpc DeleteCategory(Category) returns (Success);
+}
+
+message Ticket {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string asignee_id = 4;
+  string owner_id = 5;
+  string category_id = 6;
+  int32 status = 7;
+  int64 created_at = 8;
+  int64 updated_at = 9;
+}
+
+message ListTicketReq {
+  string asignee_id = 1;
+  string owner_id = 2;
+  string category_id = 3;
+  int32 status = 4;
+  int32 page = 5;
+  int32 limit = 6;
+  string name = 7;
+}
+
+message ListTicketResp {
+  repeated Ticket tickets = 1;
+  int64 total_results = 2;
+}
+
+message Category {
+  string id = 1;
+  string name = 2;
+  int64 created_at = 3;
+  int64 updated_at = 4;
+}
+
+message ListCategoryReq {
+  int32 page = 1;
+  int32 limit = 2;
+}
+message ListCategoryResp {
+  repeated Category categories = 1;
+  int64 total_results = 2;
+}
+
+message Success {
+  bool success = 1;
+}

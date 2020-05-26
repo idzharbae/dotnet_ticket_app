@@ -1,0 +1,6 @@
+{
+    "db": {
+     "ConnectionString":"Server=127.0.0.1,1433;Database=master;User Id=sa;Password=SUp3rS3kRet!;"
+    },
+    "secret_key": "SUPER_SEKCRET_KEY"
+  }

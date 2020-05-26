@@ -1,0 +1,211 @@
+﻿@page "/assignedtome"
+@inject IJSRuntime JSRuntime
+@using StateManagement
+@inject JwtState JwtState
+@inject UserState UserState
+@using web.Data
+@using TicketGrpc=TicketApp.Internal.Delivery.Grpc
+@inject AuthService AuthService
+@inject TicketService TicketService
+@inject NavigationManager NavigationManager
+@using Grpc.Core;
+
+<div class="row">
+    <div class="col">
+        <select class="form-control" @onchange="e => FilterStatus(e)" >
+            <option selected value=0>status filter</option>
+            <option value=1> open</option>
+            <option value=2> on progress</option>
+            <option value=3> done</option>
+            <option value=4> closed</option>
+        </select>
+    </div>
+    <div class="col">
+        <input class="form-control" type="text" @onchange="e => SearchTicket(e)" />
+    </div>
+</div>
+
+<div class="row">
+    <ul class="pagination justify-content-center pagination-large">
+        @for(int i = 1; i <= Math.Ceiling(ticketList.ticketCount/10.0); i++) {
+            int pageNumber = i;
+            <li class=@(i==Page?"page-item active":"page-item") >
+                <button class="page-link" @onclick="() => SwitchPage(pageNumber)">@pageNumber</button>
+            </li>
+        }
+    </ul>
+</div>
+
+<div class="row">
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Owner</th>
+            <th>Asignee</th>
+            <th>Status</th>
+            <th>Created At</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+@if (ticketList.tickets != null && ticketList.tickets.Length >0)
+{
+    
+            @foreach (var ticket in ticketList.tickets)
+            {
+            <tr>
+                <td>@ticket.Name</td>
+                <td>@ticket.Description</td>
+                <td>@ticket.Owner</td>
+                <td>@ticket.Asignee</td>
+                <td><select class="form-control" @onchange="e => BindStatus(ticket, e)" >
+                    <option value=0 selected=@(ticket.Status == 0)>no status</option>
+                    <option value=1 selected=@(ticket.Status == 1)>open</option>
+                    <option value=2 selected=@(ticket.Status == 2)>on progress</option>
+                    <option value=3 selected=@(ticket.Status == 3)>done</option>
+                    <option value=4 selected=@(ticket.Status == 4)>closed</option>
+                </select></td>
+                <td>@ticket.CreatedAt</td>
+                <td>
+                    <button class="btn btn-secondary" @onclick="() => UpdateStatus(ticket)" >update status</button>
+                </td>
+            </tr>
+            }
+} else {
+    <tr><td colspan=6>Data empty</td></tr>
+}
+    </tbody>
+</table>
+</div>
+
+<div class="row">
+    <ul class="pagination justify-content-center pagination-large">
+        @for(int i = 1; i <= Math.Ceiling(ticketList.ticketCount/10.0); i++) {
+            int pageNumber = i;
+            <li class=@(i==Page?"page-item active":"page-item") >
+                <button class="page-link" @onclick="() => SwitchPage(pageNumber)">@pageNumber</button>
+            </li>
+        }
+    </ul>
+</div>
+
+<div class="modal @errorModal.ModalClass" tabindex="-1" role="dialog" style="display:@errorModal.ModalDisplay">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    @if(errorModal.exception != null) {
+                        @errorModal.exception.Status.StatusCode.ToString()
+                    }
+                </h5>
+                <button type="button" class="ModalClose" data-dismiss="modal" aria-label="ModalClose">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>
+                    @if(errorModal.exception != null) {
+                        @errorModal.exception.Status.Detail
+                    }
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => ErrorModalClose()">ModalClose</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal @updatedModal.ModalClass" tabindex="-1" role="dialog" style="display:@updatedModal.ModalDisplay">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Updated Ticket</h5>
+                <button type="button" class="ModalClose" data-dismiss="modal" aria-label="ModalClose">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Updated ticket: @updatedModal.Name</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => ModalUpdatedClose()">ModalClose</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    TicketList ticketList = new TicketList();
+    ErrorModal errorModal = new ErrorModal();
+    TicketModal updatedModal = new TicketModal();
+    long totalTickets;
+    int Page = 1;
+    int status;
+    string search = "";
+    protected override void OnInitialized() {
+        if(string.IsNullOrEmpty(JwtState.Jwt))
+            NavigationManager.NavigateTo("login");
+        try{
+            FetchData();
+        } catch (RpcException e) {
+            ErrorModalOpen(e);
+        } catch(Exception e) {
+            ErrorModalOpen(new RpcException(new Status(StatusCode.Internal, e.Message), ""));
+        }
+    }
+    void FetchData() {
+        ticketList = TicketService.List(new TicketGrpc.ListTicketReq{
+            Page = Page,
+            Limit = 10,
+            AsigneeId = UserState.user.Id,
+            Name = search,
+            Status = status
+        });
+    }
+    void FilterStatus(ChangeEventArgs e) {
+        status = int.Parse(e.Value.ToString());
+        FetchData();
+    }
+    void SearchTicket(ChangeEventArgs e) {
+        search = e.Value.ToString();
+        FetchData();
+    }
+    public void ErrorModalClose() {
+        errorModal.Close();
+        StateHasChanged();
+    }
+    public void ErrorModalOpen(RpcException e) {
+        errorModal.Open(e);
+        StateHasChanged();
+    }
+    void BindStatus(Ticket t, ChangeEventArgs e) {
+        t.Status = int.Parse(e.Value.ToString());
+    }
+    public void ModalUpdatedOpen(string ticketName) {
+        updatedModal.Open(ticketName);
+        StateHasChanged();
+    }
+
+    public void ModalUpdatedClose() {
+        updatedModal.Close();
+        StateHasChanged();
+    }
+    void UpdateStatus(Ticket t) {
+        t.Asignee = UserState.user.Id;
+        try{
+            TicketService.UpdateTicketStatus(t, JwtState.Jwt);
+            ModalUpdatedOpen(t.Name);
+            FetchData();
+        } catch (RpcException e) {
+            ErrorModalOpen(e);
+        } catch(Exception e) {
+            ErrorModalOpen(new RpcException(new Status(StatusCode.Internal, e.Message), ""));
+        }
+    }
+    void SwitchPage(int newPage) {
+        Page = newPage;
+        FetchData();
+    }
+}

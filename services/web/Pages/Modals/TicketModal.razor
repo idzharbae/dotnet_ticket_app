@@ -1,0 +1,34 @@
+@namespace Modals
+@using web.Data.ComponentEntities
+
+<div class="modal @ticketModal.ModalClass" tabindex="-1" role="dialog" style="display:@ticketModal.ModalDisplay">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@ticketModal.ModalTitle</h5>
+                <button type="button" class="ModalClose" @onclick="() => ModalClose()" aria-label="ModalClose">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>@ticketModal.ModalBody</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="() => ModalClose()">ModalClose</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    public ModalEntity ticketModal = new ModalEntity();
+    public void ModalOpen(string title, string body) {
+        ticketModal.Open(title, body);
+        StateHasChanged();
+    }
+
+    public void ModalClose() {
+        ticketModal.Close();
+        StateHasChanged();
+    }
+}

@@ -1,0 +1,263 @@
+﻿@page "/myticket"
+@inject IJSRuntime JSRuntime
+@using StateManagement
+@inject JwtState JwtState
+@inject UserState UserState
+@using web.Data
+@using TicketGrpc=TicketApp.Internal.Delivery.Grpc
+@inject AuthService AuthService
+@inject TicketService TicketService
+@inject NavigationManager NavigationManager
+@using Grpc.Core;
+@using web.Data.ComponentEntities
+
+<div class="modal @newTicketModal.ModalClass" tabindex="-1" role="dialog" style="display:@newTicketModal.ModalDisplay">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+<div class="modal-header">
+    <h5 class="modal-title">
+        New Ticket
+    </h5>
+    <button type="button" class="ModalClose" @onclick="() => NewTicketModalClose()" aria-label="ModalClose">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+<div class="modal-body">
+    <div class="card">
+        <div class="card-body">
+        <h5 class="card-title text-center">Create Ticket</h5>
+        <EditForm Model=@ticket OnValidSubmit=@ValidFormSubmitted>
+            <div class="form">
+
+            <div class="form-label-group">
+            <InputText type="text" id="ticketName" class="form-control" placeholder="Ticket name" required autofocus 
+                @bind-Value=@ticket.Name/>
+            <label for="ticketName">Ticket Name</label>
+            </div>
+
+            <div class="form-label-group">
+            <InputText type="text" id="ticketDescription" class="form-control" placeholder="Ticket Description" required autofocus 
+                @bind-Value=@ticket.Description/>
+            <label for="ticketDescription">Ticket Description</label>
+            </div>
+
+            <div class="form-label-group">
+            <InputNumber type="number" id="ticketStatus" class="form-control" placeholder="Ticket Status" autofocus 
+                @bind-Value=@ticket.Status/>
+            <label for="ticketStatus">Ticket Status</label>
+            </div>
+
+            <select class="form-control" id="ticketCategoryID" @onchange="e => BindCategory(ticket, e)" >
+                @foreach(var c in categories) {
+                    <option value=@c.Id>@c.Name</option>
+                }
+            </select>
+
+            <div class="form-label-group">
+            <InputText type="text" id="ticketAsigneeEmail" class="form-control" placeholder="Ticket Asignee Email" autofocus 
+                @bind-Value=@ticket.Asignee/>
+            <label for="ticketAsigneeEmail">Ticket Asignee Email</label>
+            </div>
+
+            <button class="btn btn-lg btn-primary btn-block text-uppercase" type="submit">Register</button>
+            </div>
+        </EditForm>
+        </div>
+    </div>
+</div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col">
+        <select class="form-control" @onchange="e => FilterStatus(e)" >
+            <option selected value=0>status filter</option>
+            <option value=1> open</option>
+            <option value=2> on progress</option>
+            <option value=3> done</option>
+            <option value=4> closed</option>
+        </select>
+    </div>
+    <div class="col">
+        <input class="form-control" type="text" @onchange="e => SearchTicket(e)" />
+    </div>
+    <div class="col">
+        <button class="btn btn-primary" @onclick="() => NewTicketModalOpen()">New Ticket</button>
+    </div>
+</div>
+<div class="row">
+    <ul class="pagination justify-content-center pagination-large">
+        @for(int i = 1; i <= Math.Ceiling(ticketList.ticketCount/10.0); i++) {
+            int pageNumber = i;
+            <li class=@(i==Page?"page-item active":"page-item") >
+                <button class="page-link" @onclick="() => SwitchPage(pageNumber)">@pageNumber</button>
+            </li>
+        }
+    </ul>
+</div>
+<div class="row">
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Owner</th>
+            <th>Asignee</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th>Created At</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+@if (ticketList.tickets != null && ticketList.tickets.Length >0)
+{
+    
+    @foreach (var t in ticketList.tickets)
+    {
+    <tr>
+            <td><EditForm Model=@t>
+                <InputText @bind-Value=t.Name /></EditForm></td>
+            <td><EditForm Model=@t>
+                <InputText @bind-Value=t.Description /></EditForm></td>
+            <td>@t.Owner</td>
+            <td><EditForm Model=@t>
+                <InputText @bind-Value=t.Asignee /></EditForm></td>
+            <td>
+                <select class="form-control"
+                    @onchange="e => BindCategory(t, e)" >
+                    @foreach(var c in categories) {
+                        <option value=@c.Id selected=@(c.Name == t.Category)>@c.Name</option>
+                    }
+                </select>
+            </td>
+            <td>
+                <select class="form-control" @onchange="e => BindStatus(t, e)" >
+                    <option value=0 selected=@(t.Status == 0)>no status</option>
+                    <option value=1 selected=@(t.Status == 1)> open</option>
+                    <option value=2 selected=@(t.Status == 2)> on progress</option>
+                    <option value=3 selected=@(t.Status == 3)> done</option>
+                    <option value=4 selected=@(t.Status == 4)> closed</option>
+                </select>
+            </td>
+            <td>@t.CreatedAt</td>
+        <td>
+            <button class="btn btn-danger" @onclick="() => DeleteTicket(t.Id, t.Name)" >delete</button>
+            <button class="btn btn-secondary" @onclick="() => UpdateTicket(t)" >update</button>
+        </td>
+    </tr>
+    }
+        
+} else {
+    <tr><td colspan=6>Data empty</td></tr>
+}
+    </tbody>
+</table>
+</div>
+
+<div>
+    <Modals.TicketModal @ref="modal" />
+</div>
+
+@code {
+    Modals.TicketModal modal;
+
+    Ticket ticket = new Ticket();
+    TicketList ticketList = new TicketList();
+    web.Data.Category[] categories;
+    long totalTickets;
+    int Page = 1;
+    int status;
+    string search = "";
+    TicketModal newTicketModal = new TicketModal();
+
+    protected override void OnInitialized() {
+        if(string.IsNullOrEmpty(JwtState.Jwt))
+            NavigationManager.NavigateTo("login");
+        categories = TicketService.ListCategory(new TicketGrpc.ListCategoryReq{}).categories;
+        FetchData();
+    }
+    void FetchData() {
+        try{
+            var user = AuthService.ValidateJwt(JwtState.Jwt);
+        
+            ticketList = TicketService.List(new TicketGrpc.ListTicketReq{
+                Name = search,
+                Status = status,
+                Page = Page,
+                Limit = 10,
+                OwnerId = user.Id
+            });
+        } catch (RpcException e) {
+            modal.ModalOpen("Error occured", e.Status.StatusCode+": "+e.Status.Detail);
+        } catch(Exception e) {
+            modal.ModalOpen("Error occured", e.Message);
+        }
+    }
+    void ValidFormSubmitted() {
+        try{
+            TicketService.CreateTicket(ticket, JwtState.Jwt);
+            ticket = new Ticket();
+            modal.ModalOpen("Ticket Created", "Ticket created: "+ticket.Name);
+            FetchData();
+        } catch (RpcException e) {
+            modal.ModalOpen("Error occured", e.Status.StatusCode+": "+e.Status.Detail);
+        } catch(Exception e) {
+            modal.ModalOpen("Error occured", e.Message);
+        }
+    }
+    public void NewTicketModalOpen() {
+        newTicketModal.Open("");
+        StateHasChanged();
+    }
+
+    public void NewTicketModalClose() {
+        newTicketModal.Close();
+        StateHasChanged();
+    }
+    public void DeleteTicket(string ticketId, string ticketName) {
+        try{
+            TicketService.DeleteTicket(new Ticket{
+                Id = ticketId,
+                Owner = UserState.user.Id
+            }, JwtState.Jwt);
+            FetchData();
+            modal.ModalOpen("Ticket Deleted", "Ticket deleted: "+ticketName);
+        } catch (RpcException e) {
+            modal.ModalOpen("Error occured", e.Status.StatusCode+": "+e.Status.Detail);
+        } catch(Exception e) {
+            modal.ModalOpen("Error occured", e.Message);
+        }
+    }
+    public void UpdateTicket(web.Data.Ticket ticket) {
+        try{
+            ticket.Owner = UserState.user.Id;
+            TicketService.UpdateTicket(ticket, JwtState.Jwt);
+            modal.ModalOpen("Ticket Updated", "Ticket updated: "+ticket.Name);
+            FetchData();
+        } catch (RpcException e) {
+            modal.ModalOpen("Error occured", e.Status.StatusCode+": "+e.Status.Detail);
+        } catch(Exception e) {
+            modal.ModalOpen("Error occured", e.Message);
+        }
+    }
+    void FilterStatus(ChangeEventArgs e) {
+        status = int.Parse(e.Value.ToString());
+        FetchData();
+    }
+    void SearchTicket(ChangeEventArgs e) {
+        search = e.Value.ToString();
+        FetchData();
+    }
+    void BindStatus(Ticket t, ChangeEventArgs e) {
+        t.Status = int.Parse(e.Value.ToString());
+    }
+    void BindCategory(Ticket t, ChangeEventArgs e) {
+        t.Category = e.Value.ToString();
+    }
+    void SwitchPage(int newPage) {
+        Page = newPage;
+        FetchData();
+    }
+}

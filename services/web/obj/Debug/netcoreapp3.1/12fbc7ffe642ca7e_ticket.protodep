@@ -1,0 +1,2 @@
+obj/Debug/netcoreapp3.1/Ticket.cs \
+obj/Debug/netcoreapp3.1/TicketGrpc.cs: protos/ticket.proto

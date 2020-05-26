@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+option csharp_namespace = "AuthApp.Internal.Delivery.Grpc";
+
+package AuthProto;
+
+service AuthGrpc {
+  rpc Login(LoginReq) returns (LoginResp);
+  rpc GetUserFromToken(Token) returns (User);
+  rpc GetUserById(GetUserByIdReq) returns (User);
+  rpc GetUserByEmail(GetUserByEmailReq) returns (User);
+  rpc Register(User) returns (User);
+}
+
+message Token {
+  string token = 1;
+}
+
+message LoginReq {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginResp {
+  string jwt = 1;
+}
+
+message GetUserByIdReq {
+  string id = 1;
+}
+message GetUserByEmailReq {
+  string email = 1;
+}
+
+message User {
+  string id = 1;
+  string email = 2;
+  string full_name = 3;
+  string password = 4;
+}

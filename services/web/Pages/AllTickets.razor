@@ -1,0 +1,113 @@
+﻿@page "/"
+@inject IJSRuntime JSRuntime
+@using StateManagement
+@inject JwtState JwtState
+@using web.Data
+@using TicketGrpc=TicketApp.Internal.Delivery.Grpc
+@inject TicketService TicketService
+@inject NavigationManager NavigationManager
+
+
+<div class="row">
+    <div class="col">
+        <select class="form-control" @onchange="e => FilterStatus(e)" >
+            <option selected value=0>status filter</option>
+            <option value=1> open</option>
+            <option value=2> on progress</option>
+            <option value=3> done</option>
+            <option value=4> closed</option>
+        </select>
+    </div>
+    <div class="col">
+        <input class="form-control" type="text" @onchange="e => SearchTicket(e)" />
+    </div>
+</div>
+
+<div class="row">
+    <ul class="pagination justify-content-center pagination-large">
+        @for(int i = 1; i <= Math.Ceiling(ticketList.ticketCount/10.0); i++) {
+            int pageNumber = i;
+            <li class=@(i==Page?"page-item active":"page-item") >
+                <button class="page-link" @onclick="() => SwitchPage(pageNumber)">@pageNumber</button>
+            </li>
+        }
+    </ul>
+</div>
+
+<div class="row">
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Owner</th>
+            <th>Asignee</th>
+            <th>Status</th>
+            <th>Category</th>
+            <th>Created At</th>
+        </tr>
+    </thead>
+    <tbody>
+@if (ticketList.tickets != null && ticketList.tickets.Length >0)
+{
+    
+            @foreach (var ticket in ticketList.tickets)
+            {
+            <tr>
+                <td>@ticket.Name</td>
+                <td>@ticket.Description</td>
+                <td>@ticket.Owner</td>
+                <td>@ticket.Asignee</td>
+                <td>@ticket.StatusString</td>
+                <td>@ticket.Category</td>
+                <td>@ticket.CreatedAt</td>
+            </tr>
+            }
+} else {
+    <tr><td colspan=6>Data empty</td></tr>
+}
+    </tbody>
+</table>
+</div>
+
+<div class="row">
+    <ul class="pagination justify-content-center pagination-large">
+        @for(int i = 1; i <= Math.Ceiling(ticketList.ticketCount/10.0); i++) {
+            int pageNumber = i;
+            <li class=@(i==Page?"page-item active":"page-item") >
+                <button class="page-link" @onclick="() => SwitchPage(pageNumber)">@pageNumber</button>
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    TicketList ticketList;
+    long totalTickets;
+    int Page = 1;
+    int status;
+    string search = "";
+    protected override void OnInitialized() {
+        FetchData();
+    }
+    void FetchData() {
+        ticketList = TicketService.List(new TicketGrpc.ListTicketReq{
+            Name = search,
+            Page = Page,
+            Limit = 10,
+            Status = status
+        });
+    }
+    void FilterStatus(ChangeEventArgs e) {
+        status = int.Parse(e.Value.ToString());
+        FetchData();
+    }
+    void SearchTicket(ChangeEventArgs e) {
+        search = e.Value.ToString();
+        FetchData();
+    }
+    void SwitchPage(int newPage) {
+        Page = newPage;
+        FetchData();
+    }
+}

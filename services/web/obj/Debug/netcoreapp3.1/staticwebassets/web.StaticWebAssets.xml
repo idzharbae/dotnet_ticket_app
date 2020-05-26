@@ -1,0 +1,3 @@
+﻿<StaticWebAssets Version="1.0">
+  <ContentRoot BasePath="_content/MatBlazor" Path="/home/idzhar/.nuget/packages/matblazor/2.4.3/build/../staticwebassets/" />
+</StaticWebAssets>
